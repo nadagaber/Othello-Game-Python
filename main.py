@@ -36,6 +36,8 @@ class OthelloBoard:
             for move in available_moves:
                 pygame.draw.circle(screen, (0, 255, 0), (25 + 50 * move[1], 25 + 50 * move[0]), 5)
 
+        #pygame.display.flip()
+
     def get_available_moves(self, color):
         moves = set()
         directions = [
@@ -94,6 +96,7 @@ class OthelloBoard:
                        'W': sum(row.count('W') for row in self.board)}
         return disc_counts['B'], disc_counts['W']
 
+
 class GameController:
     def __init__(self):
         self.othello = OthelloBoard()
@@ -151,7 +154,14 @@ class GameController:
                         return self.start_game(screen, current_player, difficulty)
 
     def start_game(self, screen, current_player, difficulty):
+        # Render disc count labels off-screen
         font = pygame.font.Font(None, 24)
+        black_discs_label_offscreen = font.render("Black Discs: 0", True, (0, 0, 0))
+        white_discs_label_offscreen = font.render("White Discs: 0", True, (0, 0, 0))
+
+        white_discs_left, black_discs_left = 30, 30
+
+        prev_black_count, prev_white_count = 0, 0
 
         while True:
             black_count, white_count = self.othello.count_discs()  # Calculate the disc counts before each move
@@ -168,7 +178,6 @@ class GameController:
                 if not available_moves:  # no available moves for both white and black
                     black_count, white_count = self.othello.count_discs()
                     self.othello.display(screen)
-                    self.update_disc_counts(screen, font, black_count, white_count)  # Update disc counts
                     if black_count > white_count:
                         self.show_winner_popup(screen, "Black Wins!", black_count, white_count, 10000)
                     elif white_count > black_count:
@@ -178,12 +187,6 @@ class GameController:
                     break
 
             self.othello.display(screen, available_moves if current_player == 'B' else None)
-
-            # Display disc counts
-            self.update_disc_counts(screen, font, black_count, white_count)
-
-            pygame.display.flip()
-
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -196,23 +199,58 @@ class GameController:
                             row = math.floor(pos[1] / 50)
                             col = math.floor(pos[0] / 50)
                             if (row, col) in available_moves:
-                                self.othello.make_move((row, col), 'B')
-                                current_player = self.othello.switch_player(current_player)
+                                if black_discs_left > 0:
+                                    black_discs_left -= 1
+                                    self.othello.make_move((row, col), 'B')
+                                    current_player = self.othello.switch_player(current_player)
+                                else:
+                                    black_count, white_count = self.othello.count_discs()
+                                    self.othello.display(screen)
+                                    self.show_winner_popup(screen, "Black ran out of discs",
+                                                           0, 0, 2000)
+                                    if black_count > white_count:
+                                        self.show_winner_popup(screen, "Black wins!", black_count, white_count, 10000)
+                                    elif white_count > black_count:
+                                        self.show_winner_popup(screen, "White wins!", black_count, white_count, 10000)
+                                    else:
+                                        self.show_winner_popup(screen, "It's a tie", black_count, white_count, 10000)
+                                    pygame.quit()
+                                    sys.exit()
                     else:
                         if available_moves:
                             # Computer (white) player with Minimax algorithm
                             move = self.minimax(current_player, difficulty)
                             if move:
-                                self.othello.make_move(move, 'W')
-                                current_player = self.othello.switch_player(current_player)
+                                if white_discs_left > 0:
+                                    white_discs_left -= 1
+                                    self.othello.make_move(move, 'W')
+                                    current_player = self.othello.switch_player(current_player)
+                                else:
+                                    black_count, white_count = self.othello.count_discs()
+                                    self.othello.display(screen)
+                                    if black_count > white_count:
+                                        self.show_winner_popup(screen, "White ran out of discs",
+                                                               0, 0, 2000)
+                                        self.show_winner_popup(screen, "Black wins!", black_count, white_count, 10000)
+                                    elif white_count > black_count:
+                                        self.show_winner_popup(screen, "White wins!", black_count, white_count, 10000)
+                                    else:
+                                        self.show_winner_popup(screen, "It's a tie", black_count, white_count, 10000)
+                                    pygame.quit()
+                                    sys.exit()
 
-    def update_disc_counts(self, screen, font, black_count, white_count):
-        # Clear the area where the counts are displayed
-        pygame.draw.rect(screen, (0, 128, 0), (2, 402, 400, 45))
-        black_text = font.render(f"Black: {black_count}", True, (0, 0, 0))
-        white_text = font.render(f"White: {white_count}", True, (255, 255, 255))
-        screen.blit(black_text, (10, 415))
-        screen.blit(white_text, (300, 415))
+            # Check if disc counts have changed
+            if black_count != prev_black_count:
+                black_discs_label_offscreen = font.render(f"Black Discs: {black_count}", True, (0, 0, 0))
+                prev_black_count = black_count
+            if white_count != prev_white_count:
+                white_discs_label_offscreen = font.render(f"White Discs: {white_count}", True, (0, 0, 0))
+                prev_white_count = white_count
+
+            # Blit off-screen labels onto the main screen
+            screen.blit(black_discs_label_offscreen, (20, 410))
+            screen.blit(white_discs_label_offscreen, (20, 430))
+            pygame.display.update()
 
     def minimax(self, player, depth, alpha=-math.inf, beta=math.inf):
         def max_value(board, depth, alpha, beta):
