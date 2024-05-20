@@ -1,5 +1,19 @@
 # Othello-Game
 
+
+
+# Team members:
+
+* Shehab Sayed (Me)(Contact : https://www.linkedin.com/in/shehab-sayed-481249249/)
+
+* Amr Gamal (Contact : https://www.linkedin.com/in/amr-jamal-30467a26a/)
+
+* Mohammed Yasser (Contact : https://www.linkedin.com/in/mohamed-y-abdelmaged/)
+
+* Nada Gaber (Contact : https://www.linkedin.com/in/nada-gaber-20929a208/)
+
+
+
 1. OthelloBoard Class
 
 The `OthelloBoard` class is responsible for managing the game board, displaying the board, determining available moves, making moves, and counting discs.
