@@ -4,7 +4,7 @@ import math
 
 class OthelloBoard:
     def __init__(self):
-        self.board = [[' ' for _ in range(8)] for _ in range(8)]
+        self.board = [[' ' for _ in range(8)] for _ in range(8)]  # 8x8 empty grid
 
         # Initial state
         self.board[3][3] = 'W'
@@ -23,7 +23,7 @@ class OthelloBoard:
             pygame.draw.line(screen, (0, 0, 0), (50 * i, 0), (50 * i, 400), 2)
             pygame.draw.line(screen, (0, 0, 0), (0, 50 * i), (400, 50 * i), 2)
 
-        # Draw pieces
+        # Draw discs
         for i in range(8):
             for j in range(8):
                 if self.board[i][j] == 'B':
@@ -31,12 +31,10 @@ class OthelloBoard:
                 elif self.board[i][j] == 'W':
                     pygame.draw.circle(screen, (255, 255, 255), (25 + 50 * j, 25 + 50 * i), 20)
 
-        # Highlight available moves
+        # Show available moves
         if available_moves is not None:
             for move in available_moves:
                 pygame.draw.circle(screen, (0, 255, 0), (25 + 50 * move[1], 25 + 50 * move[0]), 5)
-
-        pygame.display.flip()
 
     def get_available_moves(self, color):
         moves = set()
@@ -49,7 +47,7 @@ class OthelloBoard:
         opp_color = 'W' if color == 'B' else 'B'
         for i in range(8):
             for j in range(8):
-                if self.board[i][j] == ' ':  # empty cell
+                if self.board[i][j] == ' ':
                     for d in directions:
                         x, y = i + d[0], j + d[1]  # move to the cell in one of the possible directions
                         if 0 <= x < 8 and 0 <= y < 8 and self.board[x][y] == opp_color:
@@ -61,8 +59,7 @@ class OthelloBoard:
                                     break
                                 x += d[0]
                                 y += d[1]
-        sorted_moves = sorted(list(moves), key=lambda move: move[0])
-        return sorted_moves
+        return moves
 
     def make_move(self, move, color):
         x, y = move
@@ -97,14 +94,13 @@ class OthelloBoard:
                        'W': sum(row.count('W') for row in self.board)}
         return disc_counts['B'], disc_counts['W']
 
-
 class GameController:
     def __init__(self):
         self.othello = OthelloBoard()
 
     def play_game(self):
         pygame.init()
-        screen = pygame.display.set_mode((400, 450))  # Increase the height of the window to accommodate move count labels
+        screen = pygame.display.set_mode((400, 450))
         pygame.display.set_caption("Othello")
 
         current_player = 'B'  # Black always starts
@@ -155,15 +151,7 @@ class GameController:
                         return self.start_game(screen, current_player, difficulty)
 
     def start_game(self, screen, current_player, difficulty):
-        # Render disc count labels off-screen
         font = pygame.font.Font(None, 24)
-        black_discs_label_offscreen = font.render("Black Discs: 0", True, (0, 0, 0))
-        white_discs_label_offscreen = font.render("White Discs: 0", True, (0, 0, 0))
-
-        white_discs_left, black_discs_left = 30, 30
-
-        # Initialize previous disc counts
-        prev_black_count, prev_white_count = 0, 0
 
         while True:
             black_count, white_count = self.othello.count_discs()  # Calculate the disc counts before each move
@@ -180,6 +168,7 @@ class GameController:
                 if not available_moves:  # no available moves for both white and black
                     black_count, white_count = self.othello.count_discs()
                     self.othello.display(screen)
+                    self.update_disc_counts(screen, font, black_count, white_count)  # Update disc counts
                     if black_count > white_count:
                         self.show_winner_popup(screen, "Black Wins!", black_count, white_count, 10000)
                     elif white_count > black_count:
@@ -189,6 +178,12 @@ class GameController:
                     break
 
             self.othello.display(screen, available_moves if current_player == 'B' else None)
+
+            # Display disc counts
+            self.update_disc_counts(screen, font, black_count, white_count)
+
+            pygame.display.flip()
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -201,58 +196,23 @@ class GameController:
                             row = math.floor(pos[1] / 50)
                             col = math.floor(pos[0] / 50)
                             if (row, col) in available_moves:
-                                if black_discs_left > 0:
-                                    black_discs_left -= 1
-                                    self.othello.make_move((row, col), 'B')
-                                    current_player = self.othello.switch_player(current_player)
-                                else:
-                                    black_count, white_count = self.othello.count_discs()
-                                    self.othello.display(screen)
-                                    self.show_winner_popup(screen, "Black ran out of discs",
-                                                           0, 0, 2000)
-                                    if black_count > white_count:
-                                        self.show_winner_popup(screen, "Black wins!", black_count, white_count, 10000)
-                                    elif white_count > black_count:
-                                        self.show_winner_popup(screen, "White wins!", black_count, white_count, 10000)
-                                    else:
-                                        self.show_winner_popup(screen, "It's a tie", black_count, white_count, 10000)
-                                    pygame.quit()
-                                    sys.exit()
+                                self.othello.make_move((row, col), 'B')
+                                current_player = self.othello.switch_player(current_player)
                     else:
                         if available_moves:
-                            # Computer player with Minimax algorithm
+                            # Computer (white) player with Minimax algorithm
                             move = self.minimax(current_player, difficulty)
                             if move:
-                                if white_discs_left > 0:
-                                    white_discs_left -= 1
-                                    self.othello.make_move(move, 'W')
-                                    current_player = self.othello.switch_player(current_player)
-                                else:
-                                    black_count, white_count = self.othello.count_discs()
-                                    self.othello.display(screen)
-                                    if black_count > white_count:
-                                        self.show_winner_popup(screen, "White ran out of discs",
-                                                               0, 0, 2000)
-                                        self.show_winner_popup(screen, "Black wins!", black_count, white_count, 10000)
-                                    elif white_count > black_count:
-                                        self.show_winner_popup(screen, "White wins!", black_count, white_count, 10000)
-                                    else:
-                                        self.show_winner_popup(screen, "It's a tie", black_count, white_count, 10000)
-                                    pygame.quit()
-                                    sys.exit()
+                                self.othello.make_move(move, 'W')
+                                current_player = self.othello.switch_player(current_player)
 
-            # Check if disc counts have changed
-            if black_count != prev_black_count:
-                black_discs_label_offscreen = font.render(f"Black Discs: {black_count}", True, (0, 0, 0))
-                prev_black_count = black_count
-            if white_count != prev_white_count:
-                white_discs_label_offscreen = font.render(f"White Discs: {white_count}", True, (0, 0, 0))
-                prev_white_count = white_count
-
-            # Blit off-screen labels onto the main screen
-            screen.blit(black_discs_label_offscreen, (20, 410))
-            screen.blit(white_discs_label_offscreen, (20, 430))  # Adjust the position for the white discs label
-            pygame.display.update()
+    def update_disc_counts(self, screen, font, black_count, white_count):
+        # Clear the area where the counts are displayed
+        pygame.draw.rect(screen, (0, 128, 0), (2, 402, 400, 45))
+        black_text = font.render(f"Black: {black_count}", True, (0, 0, 0))
+        white_text = font.render(f"White: {white_count}", True, (255, 255, 255))
+        screen.blit(black_text, (10, 415))
+        screen.blit(white_text, (300, 415))
 
     def minimax(self, player, depth, alpha=-math.inf, beta=math.inf):
         def max_value(board, depth, alpha, beta):
@@ -260,7 +220,7 @@ class GameController:
                 return self.utility(board)
             max_val = -math.inf
             for move in board.get_available_moves(player):
-                new_board = [row[:] for row in board.get_board()]  # Create a copy of the board
+                new_board = [row[:] for row in board.get_board()]
                 new_game = OthelloBoard()
                 new_game.board = new_board
                 new_game.make_move(move, player)
@@ -276,7 +236,7 @@ class GameController:
                 return self.utility(board)
             min_val = math.inf
             for move in board.get_available_moves(board.switch_player(player)):
-                new_board = [row[:] for row in board.get_board()]  # Create a copy of the board
+                new_board = [row[:] for row in board.get_board()]
                 new_game = OthelloBoard()
                 new_game.board = new_board
                 new_game.make_move(move, board.switch_player(player))
@@ -291,7 +251,7 @@ class GameController:
         best_value = -math.inf
         available_moves = self.othello.get_available_moves(player)
         for move in available_moves:
-            new_board = [row[:] for row in self.othello.get_board()]  # Create a copy of the board
+            new_board = [row[:] for row in self.othello.get_board()]
             new_game = OthelloBoard()
             new_game.board = new_board
             new_game.make_move(move, player)
@@ -309,11 +269,11 @@ class GameController:
         return black_count - white_count
 
     def show_winner_popup(self, screen, winner, blackDiscCount, whiteDiscCount, time):
-        pygame.font.init()  # you have to call this at the start,
+        pygame.font.init()
         myfont = pygame.font.SysFont('Comic Sans MS', 20)
 
         # Draw a white rectangle for the popup
-        popup_rect = pygame.Rect(50, 100, 300, 200)  # adjust the size and position as needed
+        popup_rect = pygame.Rect(50, 100, 300, 200)
         pygame.draw.rect(screen, (255, 255, 255), popup_rect)
 
         # Render winner message
@@ -332,9 +292,7 @@ class GameController:
             screen.blit(textsurface_whiteDiscCount, whiteDiscCount_rect)
 
         pygame.display.update()
-
         pygame.time.wait(time)
-
 
 game_controller = GameController()
 game_controller.play_game()
